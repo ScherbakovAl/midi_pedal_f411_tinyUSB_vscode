@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-void pedal();
+    void pedal();
 
 #ifdef __cplusplus
 }

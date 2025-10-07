@@ -13,6 +13,9 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 
+// Инициализация USB GPIO и тактирования для TinyUSB
+void board_init_usb(void);
+
 // Получить серийный номер устройства
 size_t board_usb_get_serial(uint16_t* serial_str, size_t max_chars);
 

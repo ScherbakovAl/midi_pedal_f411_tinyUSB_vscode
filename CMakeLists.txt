@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.28)
 #
 
 # Include toolchain file for ARM
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gcc-arm-none-eabi.cmake) #нужгл для tinyUSB
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gcc-arm-none-eabi.cmake) #нужно для tinyUSB
 
 # Setup compiler settings
 set(CMAKE_C_STANDARD 17)
@@ -70,6 +70,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # tinyUSB
     Pedal_f411/usb_descriptors.c
     tinyusb/src/tusb.c
+    tinyusb/src/class/midi/midi_device.c
     tinyusb/src/portable/synopsys/dwc2/dcd_dwc2.c
     tinyusb/src/portable/synopsys/dwc2/dwc2_common.c
 )

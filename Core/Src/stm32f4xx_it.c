@@ -57,7 +57,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
+extern PCD_HandleTypeDef hpcd_USB_OTG_FS;  // Не используется с TinyUSB
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -206,10 +206,11 @@ void SysTick_Handler(void)
 void OTG_FS_IRQHandler(void)
 {
   /* USER CODE BEGIN OTG_FS_IRQn 0 */
-  tud_int_handler(BOARD_DEVICE_RHPORT_NUM);
-	return;
+  // Обработчик прерываний TinyUSB для порта 0
+  tud_int_handler(0);
+  return;
   /* USER CODE END OTG_FS_IRQn 0 */
-  HAL_PCD_IRQHandler(&hpcd_USB_OTG_FS);
+  HAL_PCD_IRQHandler(&hpcd_USB_OTG_FS); // Не используется с TinyUSB
   /* USER CODE BEGIN OTG_FS_IRQn 1 */
 
   /* USER CODE END OTG_FS_IRQn 1 */

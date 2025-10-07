@@ -77,7 +77,7 @@ uint8_t const desc_fs_configuration[] =
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
 
   // Interface number, string index, EP Out & EP In address, EP size
-  TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 0, EPNUM_MIDI_OUT, (0x80 | EPNUM_MIDI_IN), 64)
+  TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 4, EPNUM_MIDI_OUT, (0x80 | EPNUM_MIDI_IN), 64)
 };
 
 #if TUD_OPT_HIGH_SPEED
@@ -87,7 +87,7 @@ uint8_t const desc_hs_configuration[] =
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
 
   // Interface number, string index, EP Out & EP In address, EP size
-  TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 0, EPNUM_MIDI_OUT, (0x80 | EPNUM_MIDI_IN), 512)
+  TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 4, EPNUM_MIDI_OUT, (0x80 | EPNUM_MIDI_IN), 512)
 };
 #endif
 
@@ -115,14 +115,16 @@ enum {
   STRID_MANUFACTURER,
   STRID_PRODUCT,
   STRID_SERIAL,
+  STRID_MIDI_INTERFACE,
 };
 
 // array of pointer to string descriptors
 char const* string_desc_arr[] =
 { (const char[]) { 0x09, 0x04 }, // 0: is supported language is English (0x0409)
-"TinyUSB",                     // 1: Manufacturer
-"TinyUSB Device",              // 2: Product
+"SCHE",                       // 1: Manufacturer
+"SCHE MIDI Pedal",            // 2: Product
 NULL,                          // 3: Serials will use unique ID if possible
+"MIDI Interface",              // 4: MIDI Interface
 };
 
 static uint16_t _desc_str[32 + 1];
@@ -167,4 +169,34 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
   _desc_str[0] = (uint16_t)((TUSB_DESC_STRING << 8) | (2 * chr_count + 2));
 
   return _desc_str;
+}
+
+
+//--------------------------------------------------------------------+
+// MIDI Callbacks
+//--------------------------------------------------------------------+
+
+// Invoked when device is mounted
+void tud_mount_cb(void)
+{
+  // Device mounted callback
+}
+
+// Invoked when device is unmounted
+void tud_umount_cb(void)
+{
+  // Device unmounted callback
+}
+
+// Invoked when usb bus is suspended
+// remote_wakeup_en : if host allow us to perform remote wakeup
+// Within 7ms, device must draw an average of current less than 2.5 mA from bus
+void tud_suspend_cb(bool remote_wakeup_en)
+{
+  (void) remote_wakeup_en;
+}
+
+// Invoked when usb bus is resumed
+void tud_resume_cb(void)
+{
 }

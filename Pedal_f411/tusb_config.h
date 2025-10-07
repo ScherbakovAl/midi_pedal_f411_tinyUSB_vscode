@@ -13,12 +13,12 @@ extern "C" {
 #endif
 
 #ifndef BOARD_TUD_RHPORT
-#define BOARD_TUD_RHPORT            1
+#define BOARD_TUD_RHPORT            0  // Для STM32F411 используем порт 0 (FS)
 #endif
 
     // RHPort max operational speed can defined by board.mk
 #ifndef BOARD_TUD_MAX_SPEED
-#define BOARD_TUD_MAX_SPEED         OPT_MODE_DEFAULT_SPEED
+#define BOARD_TUD_MAX_SPEED         OPT_MODE_FULL_SPEED  // Full Speed (12 Mbps)
 #endif
 
 // ^^^ <...> omitted stuff above, generic C language boilerplate crap, see any example in tinyusb
@@ -28,9 +28,8 @@ extern "C" {
 #define CFG_TUSB_DEBUG        		0
 #define CFG_TUD_ENABLED       		1
 #define CFG_TUD_MAX_SPEED           BOARD_TUD_MAX_SPEED
-//#define BOARD_DEVICE_RHPORT_SPEED   OPT_MODE_FULL_SPEED  // 480mbps
 #define BOARD_DEVICE_RHPORT_NUM     0
-#define CFG_TUSB_RHPORT1_MODE       (OPT_MODE_DEVICE | OPT_MODE_FULL_SPEED)
+#define CFG_TUSB_RHPORT0_MODE       (OPT_MODE_DEVICE | OPT_MODE_FULL_SPEED)
 
 // In the case of the STM32H7 with an external HS 480 PHY, you must use root hub port 1 instead of 0
 //    0 is for the internal FS 12mbit PHY so you'd use BOARD_DEVICE_RHPORT_NUM set to 0 and CFG_TUSB_RHPORT1_MODE set to (OPT_MODE_DEVICE | OPT_MODE_FULL_SPEED)
