@@ -44,9 +44,16 @@ void pedal() {
                 
                 // Отправляем нажатие клавиши "курсор-влево" через HID
                 if (tud_hid_ready()) {
-                    // HID Keyboard Report: [modifier, reserved, key1, key2, key3, key4, key5, key6]
-                    // 0x50 = Left Arrow key
+                    // HID Keyboard Report состоит из 8 байт:
+                    // [modifier, reserved, key1, key2, key3, key4, key5, key6]
+                    //
+                    // modifier = 0 (нет Ctrl/Shift/Alt)
+                    // keycode[6] = массив из 6 клавиш (стандарт USB HID)
+                    // 0x50 = Left Arrow key (стрелка влево)
+                    // Остальные позиции = 0 (клавиши не нажаты)
                     uint8_t keycode[6] = { 0x50, 0, 0, 0, 0, 0 };
+                    
+                    // Отправляем отчет: report_id=0, modifier=0, keycode
                     tud_hid_keyboard_report(0, 0, keycode);
                     
                     // Небольшая задержка перед отпусканием клавиши
@@ -54,6 +61,7 @@ void pedal() {
                     while(delay_count--);
                     
                     // Отпускаем клавишу (отправляем пустой отчет)
+                    // NULL = все клавиши отпущены
                     tud_hid_keyboard_report(0, 0, NULL);
                 }
             }
