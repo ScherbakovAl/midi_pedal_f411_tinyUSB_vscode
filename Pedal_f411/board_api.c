@@ -37,7 +37,7 @@ size_t board_usb_get_serial(uint16_t* serial_str, size_t max_chars) {
 
     // Формируем серийный номер из уникального ID
     char serial_temp[32];
-    snprintf(serial_temp, sizeof(serial_temp), "%08lX%08lX%08lX", uid[0], uid[1], uid[2]);
+    // snprintf(serial_temp, sizeof(serial_temp), "%08lX%08lX%08lX", uid[0], uid[1], uid[2]);
 
     size_t len = strlen(serial_temp);
     if (len > max_chars) {
