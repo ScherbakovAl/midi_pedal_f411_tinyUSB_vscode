@@ -7,6 +7,9 @@ cmake_minimum_required(VERSION 3.28)
 # User is free to modify the file as much as necessary
 #
 
+# Include toolchain file for ARM
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gcc-arm-none-eabi.cmake) #нужгл для tinyUSB
+
 # Setup compiler settings
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -63,6 +66,7 @@ tinyusb_target_add(${CMAKE_PROJECT_NAME})
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Pedal_f411/pedal.cpp
+    Pedal_f411/board_api.c
     # tinyUSB
     Pedal_f411/usb_descriptors.c
     tinyusb/src/tusb.c
@@ -73,15 +77,15 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    ${CMAKE_CURRENT_SOURCE_DIR}/Pedal_f411
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinyusb/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tinyusb/hw/bsp
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
-    Pedal_f411
-    # tinyUSB
-    tinyusb/src
-    tinyusb/hw/bsp
+    CFG_TUSB_MCU=OPT_MCU_STM32F4
 )
 
 # Remove wrong libob.a library dependency when using cpp files
