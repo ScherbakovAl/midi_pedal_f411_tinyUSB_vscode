@@ -46,7 +46,7 @@ void pedal() {
         auto timer = TIM5->CNT;
         if (!dequePedals.empty()) {
             auto& dP = dequePedals.front();
-            if (timer - dP.time > 4200) {
+            if (timer - dP.time > 4000) {
                 EXTI->IMR |= (uint32_t)dP.ped;
                 tud_hid_keyboard_report(0, 0, NULL);
                 dequePedals.pop_front();
@@ -172,15 +172,16 @@ extern "C" {
     void EXTI2_IRQHandler(void) {
         // EXTI->PR = extpr2;
         // EXTI->IMR &= ~(EXTI_IMR_MR2);
-        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
         dequePedals.push_back({ pedal_type::c, TIM5->CNT });
         MidiSender2(60, 33);
         GPIOC->BSRR = 0x2000;
     }
 
     void EXTI3_IRQHandler(void) {
-        EXTI->PR = extpr3;
-        EXTI->IMR &= ~(EXTI_IMR_MR3);
+        // EXTI->PR = extpr3;
+        // EXTI->IMR &= ~(EXTI_IMR_MR3);
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
         dequePedals.push_back({ pedal_type::d, TIM5->CNT });
         MidiSender2(61, 44);
         GPIOC->BSRR = 0x2000;
