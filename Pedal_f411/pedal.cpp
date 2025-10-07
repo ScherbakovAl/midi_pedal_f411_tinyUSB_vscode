@@ -13,7 +13,7 @@ int32_t t = 0;
 int32_t p = 0;
 int f = 0;
 
-enum pedal {
+enum pedal_type {
     a = EXTI_IMR_MR0,
     b = EXTI_IMR_MR1,
     c = EXTI_IMR_MR2,
@@ -22,7 +22,7 @@ enum pedal {
 
 class pedals {
 public:
-    pedal ped = pedal::a;
+    pedal_type ped = pedal_type::a;
     uint32_t time = 0;
 };
 
@@ -30,7 +30,6 @@ std::deque<pedals> dequePedals;
 
 void pedal() {
 
-    // LL_TIM_EnableCounter(TIM2);
     HAL_ADC_Start_IT(&hadc1);
     HAL_TIM_Base_Start(&htim3);
     HAL_Delay(15);
@@ -44,22 +43,22 @@ void pedal() {
     tud_init(0);
 
     while (1) {
-        tud_task();
-
         auto timer = TIM5->CNT;
         if (!dequePedals.empty()) {
             auto& dP = dequePedals.front();
             if (timer - dP.time > 4200) {
                 EXTI->IMR |= (uint32_t)dP.ped;
+                tud_hid_keyboard_report(0, 0, NULL);
                 dequePedals.pop_front();
                 GPIOC->BSRR = 0x20000000;
             }
         }
+        tud_task();
         if (timer > 4'094'967'295) {
             TIM5->CNT = 0;
         }
-
     }
+}
 
     // пометочки..
 /*
@@ -113,7 +112,9 @@ void pedal() {
             }
             }*/
 
-}
+
+uint8_t u = 0;
+uint8_t r = 0;
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
     if (f == 1 && hadc->Instance == ADC1) {
@@ -122,16 +123,66 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
             t = 300;
         }
         if (t - p > 14 || p - t > 14) {
-
-            // MidiSender((uint32_t)t);
-/**/ // TODO
-            uint8_t const cable_num = 0; // MIDI jack associated with USB endpoint
-            uint8_t const channel = 0; // 0 for channel 1
-            uint8_t note_on[3] = { 0x90 | channel, 69, 127 };  // Note On, A4 (69), velocity 127
-            tud_midi_stream_write(cable_num, note_on, sizeof(note_on));
-/**/
-
+            u = t / 30 - 9;
+            if (r != u) {
+                uint8_t note_on[3] = { 176, 64, u };
+                tud_midi_stream_write(0, note_on, sizeof(note_on));
+                r = u;
+                TIM2->CNT = 0;
+            }
             p = t;
         }
+    }
+}
+
+void MidiSender2(const uint8_t n, const uint8_t uu) {
+    uint8_t note_on[3] = { 0x91, n, uu };
+    tud_midi_stream_write(0, note_on, sizeof(note_on));
+    r = uu;
+    TIM2->CNT = 0;
+}
+
+void KeySender(const uint8_t k) {
+    if (tud_hid_ready()) {
+        uint8_t keycode[6] = { k, 0, 0, 0, 0, 0 };
+        tud_hid_keyboard_report(0, 0, keycode);
+    }
+}
+
+
+extern "C" {
+    void EXTI0_IRQHandler(void) { // отключи в stm32f4xx_it.c
+        // EXTI->PR = extpr0;
+        // EXTI->IMR &= ~(EXTI_IMR_MR0);
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+        KeySender(0x50);
+        dequePedals.push_back({ pedal_type::a, TIM5->CNT });
+        GPIOC->BSRR = 0x2000;
+    }
+
+    void EXTI1_IRQHandler(void) {
+        // EXTI->PR = extpr1;
+        // EXTI->IMR &= ~(EXTI_IMR_MR1);
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+        KeySender(0x4F);
+        dequePedals.push_back({ pedal_type::b, TIM5->CNT });
+        GPIOC->BSRR = 0x2000;
+    }
+
+    void EXTI2_IRQHandler(void) {
+        // EXTI->PR = extpr2;
+        // EXTI->IMR &= ~(EXTI_IMR_MR2);
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+        dequePedals.push_back({ pedal_type::c, TIM5->CNT });
+        MidiSender2(60, 33);
+        GPIOC->BSRR = 0x2000;
+    }
+
+    void EXTI3_IRQHandler(void) {
+        EXTI->PR = extpr3;
+        EXTI->IMR &= ~(EXTI_IMR_MR3);
+        dequePedals.push_back({ pedal_type::d, TIM5->CNT });
+        MidiSender2(61, 44);
+        GPIOC->BSRR = 0x2000;
     }
 }

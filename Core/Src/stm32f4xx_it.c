@@ -221,6 +221,7 @@ void RTC_WKUP_IRQHandler(void)
 /**
   * @brief This function handles EXTI line0 interrupt.
   */
+ #ifdef ext
 void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
@@ -273,7 +274,7 @@ void EXTI3_IRQHandler(void)
 
   /* USER CODE END EXTI3_IRQn 1 */
 }
-
+#endif
 /**
   * @brief This function handles ADC1 global interrupt.
   */
