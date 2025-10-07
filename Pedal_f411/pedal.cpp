@@ -34,15 +34,28 @@ void pedal() {
                 GPIOC->BSRR = 0x20000000;
             }
 
-            // Проверяем, что MIDI устройство подключено и готово
-            if (tud_mounted() && tud_midi_mounted()) {
+            // Проверяем, что устройства подключены и готовы
+            if (tud_mounted()) {
                 // Отправляем MIDI Note On сообщение (нота A4, velocity 127)
-                uint8_t note_on[3] = { 0x90 | channel, 69, 127 };  // Note On, A4 (69), velocity 127
-                tud_midi_stream_write(cable_num, note_on, sizeof(note_on));
+                if (tud_midi_mounted()) {
+                    uint8_t note_on[3] = { 0x90 | channel, 69, 127 };  // Note On, A4 (69), velocity 127
+                    tud_midi_stream_write(cable_num, note_on, sizeof(note_on));
+                }
                 
-                // Опционально: можно добавить Note Off через некоторое время
-                // uint8_t note_off[3] = { 0x80 | channel, 69, 0 };  // Note Off
-                // tud_midi_stream_write(cable_num, note_off, sizeof(note_off));
+                // Отправляем нажатие клавиши "курсор-влево" через HID
+                if (tud_hid_ready()) {
+                    // HID Keyboard Report: [modifier, reserved, key1, key2, key3, key4, key5, key6]
+                    // 0x50 = Left Arrow key
+                    uint8_t keycode[6] = { 0x50, 0, 0, 0, 0, 0 };
+                    tud_hid_keyboard_report(0, 0, keycode);
+                    
+                    // Небольшая задержка перед отпусканием клавиши
+                    uint32_t delay_count = 100000;
+                    while(delay_count--);
+                    
+                    // Отпускаем клавишу (отправляем пустой отчет)
+                    tud_hid_keyboard_report(0, 0, NULL);
+                }
             }
         }
     }
