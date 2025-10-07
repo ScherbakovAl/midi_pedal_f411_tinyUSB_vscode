@@ -65,6 +65,7 @@ tinyusb_target_add(${CMAKE_PROJECT_NAME})
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Pedal_f411/pedal.cpp
+    Pedal_f411/power.cpp
     Pedal_f411/board_api.c
     # tinyUSB
     Pedal_f411/usb_descriptors.c

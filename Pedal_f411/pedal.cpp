@@ -1,25 +1,69 @@
-#include "stm32f4xx_ll_tim.h"
+// #include "stm32f4xx_ll_tim.h"
 #include "pedal.hpp"
-#include "board_api.h"
+#include <deque>
+
+using uint = unsigned int;
+using cuint = const uint;
+
+cuint extpr0 = 1;
+cuint extpr1 = 2;
+cuint extpr2 = 4;
+cuint extpr3 = 8;
+int32_t t = 0;
+int32_t p = 0;
+int f = 0;
+
+enum pedal {
+    a = EXTI_IMR_MR0,
+    b = EXTI_IMR_MR1,
+    c = EXTI_IMR_MR2,
+    d = EXTI_IMR_MR3
+};
+
+class pedals {
+public:
+    pedal ped = pedal::a;
+    uint32_t time = 0;
+};
+
+std::deque<pedals> dequePedals;
 
 void pedal() {
 
-    LL_TIM_EnableCounter(TIM2); // счётчик
-    
-    // Инициализируем USB GPIO и тактирование
+    // LL_TIM_EnableCounter(TIM2);
+    HAL_ADC_Start_IT(&hadc1);
+    HAL_TIM_Base_Start(&htim3);
+    HAL_Delay(15);
+    pwr();
+    HAL_TIM_Base_Start(&htim5);
+    HAL_TIM_Base_Start_IT(&htim2);
+    f = 1;
+    GPIOC->BSRR = 0x20000000;
+
     board_init_usb();
-    
-    // Инициализируем TinyUSB (порт 0 для STM32F411)
     tud_init(0);
 
-    int fl = 1;
-
-    uint8_t const cable_num = 0; // MIDI jack associated with USB endpoint
-    uint8_t const channel = 0; // 0 for channel 1
-
     while (1) {
-        // Обязательно вызываем tud_task() для обработки USB событий
         tud_task();
+
+        auto timer = TIM5->CNT;
+        if (!dequePedals.empty()) {
+            auto& dP = dequePedals.front();
+            if (timer - dP.time > 4200) {
+                EXTI->IMR |= (uint32_t)dP.ped;
+                dequePedals.pop_front();
+                GPIOC->BSRR = 0x20000000;
+            }
+        }
+        if (timer > 4'094'967'295) {
+            TIM5->CNT = 0;
+        }
+
+    }
+
+    // пометочки..
+/*
+    int fl = 1;
 
         if (TIM2->CNT > 1000000) {
             TIM2->CNT = 0;
@@ -38,10 +82,12 @@ void pedal() {
             if (tud_mounted()) {
                 // Отправляем MIDI Note On сообщение (нота A4, velocity 127)
                 if (tud_midi_mounted()) {
+                    uint8_t const cable_num = 0; // MIDI jack associated with USB endpoint
+    uint8_t const channel = 0; // 0 for channel 1
                     uint8_t note_on[3] = { 0x90 | channel, 69, 127 };  // Note On, A4 (69), velocity 127
                     tud_midi_stream_write(cable_num, note_on, sizeof(note_on));
                 }
-                
+
                 // Отправляем нажатие клавиши "курсор-влево" через HID
                 if (tud_hid_ready()) {
                     // HID Keyboard Report состоит из 8 байт:
@@ -52,19 +98,40 @@ void pedal() {
                     // 0x50 = Left Arrow key (стрелка влево)
                     // Остальные позиции = 0 (клавиши не нажаты)
                     uint8_t keycode[6] = { 0x50, 0, 0, 0, 0, 0 };
-                    
+
                     // Отправляем отчет: report_id=0, modifier=0, keycode
                     tud_hid_keyboard_report(0, 0, keycode);
-                    
+
                     // Небольшая задержка перед отпусканием клавиши
                     uint32_t delay_count = 100000;
                     while(delay_count--);
-                    
+
                     // Отпускаем клавишу (отправляем пустой отчет)
                     // NULL = все клавиши отпущены
                     tud_hid_keyboard_report(0, 0, NULL);
                 }
             }
+            }*/
+
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+    if (f == 1 && hadc->Instance == ADC1) {
+        t = HAL_ADC_GetValue(&hadc1);
+        if (t < 300) {
+            t = 300;
+        }
+        if (t - p > 14 || p - t > 14) {
+
+            // MidiSender((uint32_t)t);
+/**/ // TODO
+            uint8_t const cable_num = 0; // MIDI jack associated with USB endpoint
+            uint8_t const channel = 0; // 0 for channel 1
+            uint8_t note_on[3] = { 0x90 | channel, 69, 127 };  // Note On, A4 (69), velocity 127
+            tud_midi_stream_write(cable_num, note_on, sizeof(note_on));
+/**/
+
+            p = t;
         }
     }
 }
