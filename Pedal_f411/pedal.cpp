@@ -152,36 +152,32 @@ void KeySender(const uint8_t k) {
 
 extern "C" {
     void EXTI0_IRQHandler(void) { // отключи в stm32f4xx_it.c
-        // EXTI->PR = extpr0;
-        // EXTI->IMR &= ~(EXTI_IMR_MR0);
-        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+        EXTI->PR = extpr0;
+        EXTI->IMR &= ~(EXTI_IMR_MR0);
         KeySender(0x50);
-        dequePedals.push_back({ pedal_type::a, TIM5->CNT });
+        dequePedals.push_back({ pedal_type::a, TIM5->CNT }); // TODO лучше не добавлять в очередь в прерывании - небезопасно
         GPIOC->BSRR = 0x2000;
     }
 
     void EXTI1_IRQHandler(void) {
-        // EXTI->PR = extpr1;
-        // EXTI->IMR &= ~(EXTI_IMR_MR1);
-        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+        EXTI->PR = extpr1;
+        EXTI->IMR &= ~(EXTI_IMR_MR1);
         KeySender(0x4F);
         dequePedals.push_back({ pedal_type::b, TIM5->CNT });
         GPIOC->BSRR = 0x2000;
     }
 
     void EXTI2_IRQHandler(void) {
-        // EXTI->PR = extpr2;
-        // EXTI->IMR &= ~(EXTI_IMR_MR2);
-        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
+        EXTI->PR = extpr2;
+        EXTI->IMR &= ~(EXTI_IMR_MR2);
         dequePedals.push_back({ pedal_type::c, TIM5->CNT });
         MidiSender2(60, 33);
         GPIOC->BSRR = 0x2000;
     }
 
     void EXTI3_IRQHandler(void) {
-        // EXTI->PR = extpr3;
-        // EXTI->IMR &= ~(EXTI_IMR_MR3);
-        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+        EXTI->PR = extpr3;
+        EXTI->IMR &= ~(EXTI_IMR_MR3);
         dequePedals.push_back({ pedal_type::d, TIM5->CNT });
         MidiSender2(61, 44);
         GPIOC->BSRR = 0x2000;
