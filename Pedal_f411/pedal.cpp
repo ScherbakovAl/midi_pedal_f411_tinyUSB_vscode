@@ -81,7 +81,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
     }
 }
 
-void MidiSender2(const uint8_t n, const uint8_t uu) {
+void MidiSender(const uint8_t n, const uint8_t uu) {
     uint8_t note_on[3] = { 0x91, n, uu };
     tud_midi_stream_write(0, note_on, sizeof(note_on));
     r = uu;
@@ -100,7 +100,7 @@ extern "C" {
     void EXTI0_IRQHandler(void) { // disable "IRQHandlers" in stm32f4xx_it.c
         EXTI->PR = extpr0;
         EXTI->IMR &= ~(EXTI_IMR_MR0);
-        MidiSender2(60, 44);
+        MidiSender(60, 44);
         dequePedals.push_back({ pedal_type::a, TIM5->CNT }); // TODO It's better not to add it to the queue here in the interrupt - it's dangerous! It needs to be redone!
         GPIOC->BSRR = 0x2000;
     }
@@ -108,7 +108,7 @@ extern "C" {
     void EXTI1_IRQHandler(void) {
         EXTI->PR = extpr1;
         EXTI->IMR &= ~(EXTI_IMR_MR1);
-        MidiSender2(61, 33);
+        MidiSender(61, 33);
         dequePedals.push_back({ pedal_type::b, TIM5->CNT });
         GPIOC->BSRR = 0x2000;
     }
