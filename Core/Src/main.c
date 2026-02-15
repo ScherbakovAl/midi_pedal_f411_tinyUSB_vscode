@@ -93,10 +93,22 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
-  MX_RTC_Init();
+  // MX_RTC_Init();
   MX_TIM3_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
+  // bootloader
+  #define BOOTLOADER_ADDRESS 0x1FFF0000 // 0x1FFF0000 ? (H7 - 0x1FF09800)
+  typedef void (*pFunction)(void);
+  pFunction JumpToApplication;
+  uint32_t JumpAddress;
+   if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET) {
+    JumpAddress = *(__IO uint32_t*) (BOOTLOADER_ADDRESS + 4);
+    JumpToApplication = (pFunction)JumpAddress;
+    JumpToApplication();
+  }
+  // bootloader
+  MX_RTC_Init();
   pedal();
   /* USER CODE END 2 */
 
