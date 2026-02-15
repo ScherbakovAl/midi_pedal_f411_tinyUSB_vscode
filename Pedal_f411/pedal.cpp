@@ -45,6 +45,34 @@ void pedal() {
         auto timer = TIM5->CNT;
         if (!dequePedals.empty()) {
             auto& dP = dequePedals.front();
+
+            if (timer - dP.time > 400) {
+                if (dP.ped == pedal_type::a) {
+                    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET) {
+                        MidiSender(60, 44);
+                        GPIOC->BSRR = 0x2000;
+                    }
+                }
+                if (dP.ped == pedal_type::b) {
+                    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET) {
+                        MidiSender(61, 33);
+                        GPIOC->BSRR = 0x2000;
+                    }
+                }
+                if (dP.ped == pedal_type::c) {
+                    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2) == GPIO_PIN_RESET) {
+                        KeySender(0x4F);
+                        GPIOC->BSRR = 0x2000;
+                    }
+                }
+                if (dP.ped == pedal_type::d) {
+                    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) == GPIO_PIN_RESET) {
+                        KeySender(0x50);
+                        GPIOC->BSRR = 0x2000;
+                    }
+                }
+            }
+
             if (timer - dP.time > 4000) {
                 EXTI->IMR |= (uint32_t)dP.ped;
                 tud_hid_keyboard_report(0, 0, NULL);
@@ -100,32 +128,24 @@ extern "C" {
     void EXTI0_IRQHandler(void) { // disable "IRQHandlers" in stm32f4xx_it.c
         EXTI->PR = extpr0;
         EXTI->IMR &= ~(EXTI_IMR_MR0);
-        MidiSender(60, 44);
         dequePedals.push_back({ pedal_type::a, TIM5->CNT }); // TODO It's better not to add it to the queue here in the interrupt - it's dangerous! It needs to be redone!
-        GPIOC->BSRR = 0x2000;
     }
 
     void EXTI1_IRQHandler(void) {
         EXTI->PR = extpr1;
         EXTI->IMR &= ~(EXTI_IMR_MR1);
-        MidiSender(61, 33);
         dequePedals.push_back({ pedal_type::b, TIM5->CNT });
-        GPIOC->BSRR = 0x2000;
     }
 
     void EXTI2_IRQHandler(void) {
         EXTI->PR = extpr2;
         EXTI->IMR &= ~(EXTI_IMR_MR2);
         dequePedals.push_back({ pedal_type::c, TIM5->CNT });
-        KeySender(0x4F);
-        GPIOC->BSRR = 0x2000;
     }
 
     void EXTI3_IRQHandler(void) {
         EXTI->PR = extpr3;
         EXTI->IMR &= ~(EXTI_IMR_MR3);
         dequePedals.push_back({ pedal_type::d, TIM5->CNT });
-        KeySender(0x50);
-        GPIOC->BSRR = 0x2000;
     }
 }
