@@ -14,8 +14,8 @@ extern "C" {
 #endif
 
     void pedal();
-    void MidiSender(const uint8_t n, const uint8_t uu);
-    void KeySender(const uint8_t k);
+    void MidiSender(const uint8_t note, const uint8_t velocity);
+    void KeySender(const uint8_t command);
 
 #ifdef __cplusplus
 }

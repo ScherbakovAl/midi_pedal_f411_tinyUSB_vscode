@@ -3,13 +3,18 @@
 using uint = unsigned int;
 using cuint = const uint;
 
-cuint extpr0 = 1;
-cuint extpr1 = 2;
-cuint extpr2 = 4;
-cuint extpr3 = 8;
+static constexpr uint32_t LED_ON  = GPIO_PIN_13;                  // BSRR set
+static constexpr uint32_t LED_OFF = GPIO_PIN_13 << 16u;           // BSRR reset
+
+static constexpr uint32_t DEBOUNCE_TICKS  =  800u;  // 80 мс  — антидребезг
+static constexpr uint32_t RELEASE_TICKS   = 2000u;  // 200 мс — ожидание отпускания
+static constexpr uint32_t TIMEOUT_TICKS   = 3000u;  // 300 мс — таймаут ложного срабатывания
+
 int32_t t = 0;
 int32_t p = 0;
-int f = 0;
+uint8_t u = 0;
+uint8_t r = 0;
+volatile int f = 0;
 
 enum class pedal_type {
     a = EXTI_IMR_MR0,
@@ -24,7 +29,7 @@ enum class pedal_condition {
 
 struct pedals {
     pedal_type ped = pedal_type::a;
-    uint32_t time = 0;
+    uint32_t time = 0u;
     pedal_condition condition = pedal_condition::none;
 };
 
@@ -66,7 +71,13 @@ struct RingBuf {
     }
 };
 
-static RingBuf dequePedals;
+static RingBuf vPedals;
+
+static inline void exti_enable(pedal_type ped) {
+    __disable_irq();
+    EXTI->IMR |= static_cast<uint32_t>(ped);
+    __enable_irq();
+}
 
 uint32_t timeLength(const uint& t1, const uint& t2) {
     uint32_t tOut;
@@ -88,69 +99,66 @@ void pedal() {
     HAL_TIM_Base_Start(&htim5); // 100us
     HAL_TIM_Base_Start_IT(&htim2);
     f = 1;
-    GPIOC->BSRR = 0x20000000;
+    GPIOC->BSRR = LED_OFF;
 
     board_init_usb();
     tud_init(0);
 
     while (1) {
-        if (!dequePedals.empty()) {
-            auto timer = TIM5->CNT;
-            auto& dP = dequePedals.front();
-            const uint32_t t = timeLength(dP.time, timer);
+        if (!vPedals.empty()) {
+            auto now = TIM5->CNT;
+            auto& vP = vPedals.front();
+            const uint32_t t = timeLength(vP.time, now);
 
-            if (t > 800 && dP.condition == pedal_condition::worked) {
-                if (dP.ped == pedal_type::a) {
+            if (t > DEBOUNCE_TICKS && vP.condition == pedal_condition::worked) {
+                if (vP.ped == pedal_type::a) {
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET) {
-                        dP.condition = pedal_condition::pressed;
+                        vP.condition = pedal_condition::pressed;
                         MidiSender(60, 44);
-                        GPIOC->BSRR = 0x2000;
+                        GPIOC->BSRR = LED_ON;
                     }
                 }
-                if (dP.ped == pedal_type::b) {
+                if (vP.ped == pedal_type::b) {
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET) {
-                        dP.condition = pedal_condition::pressed;
+                        vP.condition = pedal_condition::pressed;
                         MidiSender(61, 33);
-                        GPIOC->BSRR = 0x2000;
+                        GPIOC->BSRR = LED_ON;
                     }
                 }
-                if (dP.ped == pedal_type::c) {
+                if (vP.ped == pedal_type::c) {
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2) == GPIO_PIN_RESET) {
-                        dP.condition = pedal_condition::pressed;
+                        vP.condition = pedal_condition::pressed;
                         KeySender(0x4F);
-                        GPIOC->BSRR = 0x2000;
+                        GPIOC->BSRR = LED_ON;
                     }
                 }
-                if (dP.ped == pedal_type::d) {
+                if (vP.ped == pedal_type::d) {
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) == GPIO_PIN_RESET) {
-                        dP.condition = pedal_condition::pressed;
+                        vP.condition = pedal_condition::pressed;
                         KeySender(0x50);
-                        GPIOC->BSRR = 0x2000;
+                        GPIOC->BSRR = LED_ON;
                     }
                 }
             }
 
-            if (t > 2000 && dP.condition == pedal_condition::pressed) {
-                EXTI->IMR |= (uint32_t)dP.ped;
-                if (dP.ped == pedal_type::c || dP.ped == pedal_type::d) {
+            if (t > RELEASE_TICKS && vP.condition == pedal_condition::pressed) {
+                exti_enable(vP.ped);
+                if (vP.ped == pedal_type::c || vP.ped == pedal_type::d) {
                     tud_hid_keyboard_report(0, 0, NULL);
                 }
-                dequePedals.pop_front();
-                GPIOC->BSRR = 0x20000000;
+                vPedals.pop_front();
+                GPIOC->BSRR = LED_OFF;
             }
 
-            if (t > 3000 && dP.condition == pedal_condition::worked) {
-                EXTI->IMR |= (uint32_t)dP.ped;
-                dequePedals.pop_front();
-                GPIOC->BSRR = 0x20000000;
+            if (t > TIMEOUT_TICKS && vP.condition == pedal_condition::worked) {
+                exti_enable(vP.ped);
+                vPedals.pop_front();
+                GPIOC->BSRR = LED_OFF;
             }
         }
         tud_task();
     }
 }
-
-uint8_t u = 0;
-uint8_t r = 0;
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
     if (f == 1 && hadc->Instance == ADC1) {
@@ -171,43 +179,42 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
     }
 }
 
-void MidiSender(const uint8_t n, const uint8_t uu) {
-    uint8_t note_on[3] = { 0x91, n, uu };
+void MidiSender(const uint8_t note, const uint8_t velocity) {
+    uint8_t note_on[3] = { 0x91, note, velocity };
     tud_midi_stream_write(0, note_on, sizeof(note_on));
-    r = uu;
+    r = velocity;
     TIM2->CNT = 0;
 }
 
-void KeySender(const uint8_t k) {
+void KeySender(const uint8_t command) {
     if (tud_hid_ready()) {
-        uint8_t keycode[6] = { k, 0, 0, 0, 0, 0 };
+        uint8_t keycode[6] = { command, 0, 0, 0, 0, 0 };
         tud_hid_keyboard_report(0, 0, keycode);
     }
 }
 
-
 extern "C" {
     void EXTI0_IRQHandler(void) { // disable "IRQHandlers" in stm32f4xx_it.c
-        EXTI->PR = extpr0;
-        EXTI->IMR &= ~(EXTI_IMR_MR0);
-        dequePedals.push({ pedal_type::a, TIM5->CNT, pedal_condition::worked });
+        EXTI->PR = EXTI_PR_PR0;
+        EXTI->IMR &= ~EXTI_IMR_MR0;
+        vPedals.push({ pedal_type::a, TIM5->CNT, pedal_condition::worked });
     }
 
     void EXTI1_IRQHandler(void) {
-        EXTI->PR = extpr1;
-        EXTI->IMR &= ~(EXTI_IMR_MR1);
-        dequePedals.push({ pedal_type::b, TIM5->CNT, pedal_condition::worked });
+        EXTI->PR = EXTI_PR_PR1;
+        EXTI->IMR &= ~EXTI_IMR_MR1;
+        vPedals.push({ pedal_type::b, TIM5->CNT, pedal_condition::worked });
     }
 
     void EXTI2_IRQHandler(void) {
-        EXTI->PR = extpr2;
-        EXTI->IMR &= ~(EXTI_IMR_MR2);
-        dequePedals.push({ pedal_type::c, TIM5->CNT, pedal_condition::worked });
+        EXTI->PR = EXTI_PR_PR2;
+        EXTI->IMR &= ~EXTI_IMR_MR2;
+        vPedals.push({ pedal_type::c, TIM5->CNT, pedal_condition::worked });
     }
 
     void EXTI3_IRQHandler(void) {
-        EXTI->PR = extpr3;
-        EXTI->IMR &= ~(EXTI_IMR_MR3);
-        dequePedals.push({ pedal_type::d, TIM5->CNT, pedal_condition::worked });
+        EXTI->PR = EXTI_PR_PR3;
+        EXTI->IMR &= ~EXTI_IMR_MR3;
+        vPedals.push({ pedal_type::d, TIM5->CNT, pedal_condition::worked });
     }
 }
