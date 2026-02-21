@@ -3,18 +3,29 @@
 using uint = unsigned int;
 using cuint = const uint;
 
-static constexpr uint32_t LED_ON  = GPIO_PIN_13;                  // BSRR set
+static constexpr uint32_t LED_ON = GPIO_PIN_13;                  // BSRR set
 static constexpr uint32_t LED_OFF = GPIO_PIN_13 << 16u;           // BSRR reset
+static constexpr uint8_t RIGHT_ARROW = 0x4Fu;
+static constexpr uint8_t LEFT_ARROW = 0x50u;
 
-static constexpr uint32_t DEBOUNCE_TICKS  =  800u;  // 80 мс  — антидребезг
-static constexpr uint32_t RELEASE_TICKS   = 2000u;  // 200 мс — ожидание отпускания
-static constexpr uint32_t TIMEOUT_TICKS   = 3000u;  // 300 мс — таймаут ложного срабатывания
+static constexpr uint32_t DEBOUNCE_TICKS = 800u;  // 80 мс  — антидребезг
+static constexpr uint32_t RELEASE_TICKS = 2000u;  // 200 мс — ожидание отпускания
+static constexpr uint32_t TIMEOUT_TICKS = 3000u;  // 300 мс — таймаут ложного срабатывания
 
-int32_t t = 0;
-int32_t p = 0;
-uint8_t u = 0;
-uint8_t r = 0;
-volatile int f = 0;
+volatile int pwr_flag = 0;
+static volatile uint32_t  adc_raw = 0u;   // последнее сырое значение АЦП
+static volatile uint32_t  adc_prev = 0u;   // предыдущее значение (для гистерезиса)
+static volatile uint      cc_velocity_prev = 0u;  // флаг: АЦП инициализировано и готово
+static volatile uint8_t  cc_velocity = 0u; // значение velocity для midi
+
+static constexpr uint32_t  ADC_MIN = 300u; // подавление шума
+static constexpr uint32_t  ADC_HYSTERESIS = 14u; // +- гистерезис
+static constexpr uint8_t  MIDI_CC_SCALE = 30u;
+static constexpr uint8_t  MIDI_CC_OFFSET = 9u;
+static constexpr uint8_t  MIDI_CC_CHANNEL = 176u;   // 0xB0 — Control Change, канал 1
+static constexpr uint8_t  MIDI_CC_NUM = 64u;    // CC#64 — Sustain Pedal
+static constexpr uint8_t  MIDI_NOTE_CH = 0x91u;  // Note On, канал 2
+static constexpr uint8_t  MIDI_CC_MAX = 127u;
 
 enum class pedal_type {
     a = EXTI_IMR_MR0,
@@ -98,7 +109,7 @@ void pedal() {
     pwr();
     HAL_TIM_Base_Start(&htim5); // 100us
     HAL_TIM_Base_Start_IT(&htim2);
-    f = 1;
+    pwr_flag = 1;
     GPIOC->BSRR = LED_OFF;
 
     board_init_usb();
@@ -108,40 +119,42 @@ void pedal() {
         if (!vPedals.empty()) {
             auto now = TIM5->CNT;
             auto& vP = vPedals.front();
-            const uint32_t t = timeLength(vP.time, now);
+            const uint32_t elapsed = timeLength(vP.time, now);
 
-            if (t > DEBOUNCE_TICKS && vP.condition == pedal_condition::worked) {
-                if (vP.ped == pedal_type::a) {
+            if (elapsed > DEBOUNCE_TICKS && vP.condition == pedal_condition::worked) {
+                switch (vP.ped) {
+                case pedal_type::a:
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET) {
                         vP.condition = pedal_condition::pressed;
                         MidiSender(60, 44);
                         GPIOC->BSRR = LED_ON;
                     }
-                }
-                if (vP.ped == pedal_type::b) {
+                    break;
+                case pedal_type::b:
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET) {
                         vP.condition = pedal_condition::pressed;
                         MidiSender(61, 33);
                         GPIOC->BSRR = LED_ON;
                     }
-                }
-                if (vP.ped == pedal_type::c) {
+                    break;
+                case pedal_type::c:
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2) == GPIO_PIN_RESET) {
                         vP.condition = pedal_condition::pressed;
-                        KeySender(0x4F);
+                        KeySender(RIGHT_ARROW);
                         GPIOC->BSRR = LED_ON;
                     }
-                }
-                if (vP.ped == pedal_type::d) {
+                    break;
+                case pedal_type::d:
                     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) == GPIO_PIN_RESET) {
                         vP.condition = pedal_condition::pressed;
-                        KeySender(0x50);
+                        KeySender(LEFT_ARROW);
                         GPIOC->BSRR = LED_ON;
                     }
+                    break;
                 }
             }
 
-            if (t > RELEASE_TICKS && vP.condition == pedal_condition::pressed) {
+            if (elapsed > RELEASE_TICKS && vP.condition == pedal_condition::pressed) {
                 exti_enable(vP.ped);
                 if (vP.ped == pedal_type::c || vP.ped == pedal_type::d) {
                     tud_hid_keyboard_report(0, 0, NULL);
@@ -150,7 +163,7 @@ void pedal() {
                 GPIOC->BSRR = LED_OFF;
             }
 
-            if (t > TIMEOUT_TICKS && vP.condition == pedal_condition::worked) {
+            if (elapsed > TIMEOUT_TICKS && vP.condition == pedal_condition::worked) {
                 exti_enable(vP.ped);
                 vPedals.pop_front();
                 GPIOC->BSRR = LED_OFF;
@@ -161,28 +174,27 @@ void pedal() {
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-    if (f == 1 && hadc->Instance == ADC1) {
-        t = HAL_ADC_GetValue(&hadc1);
-        if (t < 300) {
-            t = 300;
+    if (pwr_flag && hadc->Instance == ADC1) {
+        adc_raw = HAL_ADC_GetValue(&hadc1);
+        if (adc_raw < ADC_MIN) {
+            adc_raw = ADC_MIN;
         }
-        if (t - p > 14 || p - t > 14) {
-            u = t / 30 - 9;
-            if (r != u) {
-                uint8_t note_on[3] = { 176, 64, u };
+        if (adc_raw - adc_prev > ADC_HYSTERESIS || adc_prev - adc_raw > ADC_HYSTERESIS) {
+            cc_velocity = adc_raw / MIDI_CC_SCALE - MIDI_CC_OFFSET;
+            if (cc_velocity != cc_velocity_prev) {
+                uint8_t note_on[3] = { MIDI_CC_CHANNEL, MIDI_CC_NUM, cc_velocity };
                 tud_midi_stream_write(0, note_on, sizeof(note_on));
-                r = u;
+                cc_velocity_prev = cc_velocity;
                 TIM2->CNT = 0;
             }
-            p = t;
+            adc_prev = adc_raw;
         }
     }
 }
 
 void MidiSender(const uint8_t note, const uint8_t velocity) {
-    uint8_t note_on[3] = { 0x91, note, velocity };
+    uint8_t note_on[3] = { MIDI_NOTE_CH, note, velocity };
     tud_midi_stream_write(0, note_on, sizeof(note_on));
-    r = velocity;
     TIM2->CNT = 0;
 }
 
