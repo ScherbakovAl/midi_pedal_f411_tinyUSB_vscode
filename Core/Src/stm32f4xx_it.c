@@ -292,7 +292,7 @@ void ADC_IRQHandler(void)
 /**
   * @brief This function handles TIM2 global interrupt.
   */
- extern int pwr_flag;
+extern int pwr_flag;
 void TIM2_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM2_IRQn 0 */
@@ -301,6 +301,7 @@ void TIM2_IRQHandler(void)
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
 	if (pwr_flag) {
+    tud_disconnect();
 		HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
 		__HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
 		__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
