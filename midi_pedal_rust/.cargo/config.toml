@@ -1,0 +1,9 @@
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+linker = "/home/sche/st/stm32cubeclt_1.19.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc"
+runner = "arm-none-eabi-gdb"
+
+[target.thumbv7em-none-eabihf.env]
+CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER = "arm-none-eabi-gdb"
