@@ -10,6 +10,9 @@ cmake_minimum_required(VERSION 3.28)
 # Include toolchain file for ARM
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/gcc-arm-none-eabi.cmake) #нужно для tinyUSB
 
+# Include Rust configuration
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rust.cmake)
+
 # Setup compiler settings
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -23,6 +26,44 @@ set(CMAKE_CXX_EXTENSIONS ON)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
+
+# =============================================================================
+# Compiler Optimizations - Applied to ALL languages (C, C++, Rust)
+# =============================================================================
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    # Maximum optimization for Release
+    set(CMAKE_C_FLAGS_RELEASE "-Ofast -fno-stack-protector -ffunction-sections -fdata-sections")
+    set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -fno-stack-protector -ffunction-sections -fdata-sections")
+    
+    # Link-time optimization for whole program optimization
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto -Wl,--gc-sections")
+    
+elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+    # Optimize for size
+    set(CMAKE_C_FLAGS_MINSIZEREL "-Os -fno-stack-protector -ffunction-sections -fdata-sections")
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -fno-stack-protector -ffunction-sections -fdata-sections")
+    set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} -Wl,--gc-sections")
+    
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    # Optimize but keep debug info
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -fno-stack-protector -ffunction-sections -fdata-sections")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -fno-stack-protector -ffunction-sections -fdata-sections")
+    set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} -flto -Wl,--gc-sections")
+    
+else()
+    # Debug build - minimal optimizations for debugging
+    set(CMAKE_C_FLAGS_DEBUG "-Og -g -fno-omit-frame-pointer")
+    set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -fno-omit-frame-pointer")
+endif()
+
+message(" ")
+message("=== Compiler Optimization Settings ===")
+message("Build type: ${CMAKE_BUILD_TYPE}")
+message("C Flags: ${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE}}")
+message("CXX Flags: ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}}")
+message("Linker Flags: ${CMAKE_EXE_LINKER_FLAGS_${CMAKE_BUILD_TYPE}}")
+message("=======================================")
+message(" ")
 
 # Set the project name
 set(CMAKE_PROJECT_NAME midi_pedal_f411_tinyUSB_vscode)
@@ -44,11 +85,22 @@ enable_language(C CXX ASM)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
+# =============================================================================
+# Build Rust code (must be after add_executable)
+# =============================================================================
+if(RUST_AVAILABLE)
+    message(STATUS "Building Rust code...")
+    add_rust_file(${CMAKE_SOURCE_DIR}/Pedal_f411/logic_rust.rs)
+else()
+    message(WARNING "Rust not available - skipping Rust code compilation")
+    message(WARNING "To enable Rust, install it from https://rustup.rs/")
+endif()
+
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
 
 # Add linked libraries
-target_link_libraries(${CMAKE_PROJECT_NAME}
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32cubemx
     # Add user defined libraries
 )

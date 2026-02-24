@@ -1,0 +1,11 @@
+[build]
+# Целевая платформа для STM32F4 (ARM Cortex-M4F)
+target = "thumbv7em-none-eabihf"
+
+[target.thumbv7em-none-eabihf]
+# Аргументы линкера для STM32F411
+# Примечание: линкер-скрипт указывается в CMake через CMAKE_EXE_LINKER_FLAGS
+# Здесь нужны только флаги оптимизации размера
+rustflags = [
+    "-C", "link-arg=--gc-sections",
+]
