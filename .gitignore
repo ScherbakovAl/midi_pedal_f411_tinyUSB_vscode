@@ -60,3 +60,4 @@ target/thumbv7em-none-eabihf/release/.fingerprint/midi_pedal_firmware-5ffa5c12f1
 target/thumbv7em-none-eabihf/release/.fingerprint/midi_pedal_firmware-5ffa5c12f1bc926e/output-lib-logic_rust
 target/thumbv7em-none-eabihf/release/deps/liblogic_rust-5ffa5c12f1bc926e.a
 target/thumbv7em-none-eabihf/release/deps/logic_rust-5ffa5c12f1bc926e.d
+/midi_pedal_rust/target
